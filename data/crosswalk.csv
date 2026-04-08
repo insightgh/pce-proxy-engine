@@ -1,0 +1,23 @@
+target_pce_name,series_id,source_type,pce_weight,active,cap_contribution,description
+Motor vehicle parts,CUSR0000SETC,CPI,0.040,1,0,Auto parts and accessories
+Furnishings,CUSR0000SAH3,CPI,0.025,1,0,Furniture and durable household equipment
+Recreation,CUSR0000SAR,CPI,0.030,1,0,Recreation
+Other durable goods,CUSR0000SAG1,CPI,0.015,1,0,Other durable goods
+Food and beverages,CUSR0000SAF11,CPI,0.070,1,0,Food and beverages
+Clothing and footwear,CUSR0000SAA,CPI,0.025,1,0,Clothing and footwear
+Gasoline and other energy,CUSR0000SETB,CPI,0.025,1,0,Gasoline and other motor fuel
+Other nondurable goods,CUSR0000SAN,CPI,0.090,1,0,Other nondurable goods (Core)
+Rent of primary residence,CUSR0000SEHA,CPI,0.040,1,0,Tenant rent
+Owners equivalent rent,CUSR0000SEHC,CPI,0.115,1,1,Owners equivalent rent
+Electricity and gas,CUSR0000SAH21,CPI,0.020,1,0,Household electricity and gas
+Water and sanitation,CUSR0000SEHG,CPI,0.010,1,0,Water supply and sanitation
+Transportation services,CUSR0000SAS4,CPI,0.030,1,0,Transportation services
+Recreation services,CUSR0000SARS,CPI,0.040,1,0,Recreation services
+Food services and accommodations,CUSR0000SEFV,CPI,0.070,1,0,Food services and accommodations
+Communication,CUSR0000SAE2,CPI,0.025,1,0,Telecommunication services
+Medical care (out of pocket),CUSR0000SAM,CPI,0.060,1,1,Medical Care CPI (Out of pocket)
+Higher education,CUSR0000SEEB,CPI,0.020,1,0,Higher education
+Financial services,WPSFD4131,PPI,0.080,1,0,PPI Financial services SA
+Airline Fares,CUSR0000SETG01,CPI,0.010,1,0,CPI Airline Fares
+Healthcare Outpatient,WPS511104,PPI,0.080,1,1,PPI Outpatient care
+Healthcare Inpatient,WPS512101,PPI,0.080,1,1,PPI Inpatient care
