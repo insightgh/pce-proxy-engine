@@ -232,7 +232,7 @@ st.markdown(f"""
 st.markdown(f"""
 <div class="header-bar">
     <h1>PCE Proxy Engine</h1>
-    <p>High-frequency inflation forecasting &mdash; Nittany Lion Fund, LLC</p>
+    <p>Nittany Lion Fund, LLC</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -598,6 +598,6 @@ else:
 # --- Footer ---
 st.markdown(f"""
 <div class="footer">
-    PCE Proxy Engine &mdash; Nittany Lion Fund, LLC &mdash; Quantitative Research
+    PCE Proxy Engine &mdash; Nittany Lion Fund, LLC
 </div>
 """, unsafe_allow_html=True)
