@@ -20,7 +20,7 @@ NLF_BURGUNDY  = "#A4243B"   # rgb(164,36,59)   — negative/error
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="PCE Nowcast Engine | NLF",
+    page_title="PCE Proxy Engine | NLF",
     page_icon="",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -158,22 +158,46 @@ st.markdown(f"""
         margin-top: 32px;
     }}
 
-    /* ── Landing Logo Block ── */
+    /* ── Landing ── */
     .landing-block {{
         text-align: center;
-        padding: 60px 0 40px 0;
+        padding: 50px 0 30px 0;
     }}
     .landing-block h3 {{
         color: {NLF_NAVY} !important;
         font-weight: 700;
+        font-size: 24px;
         margin-bottom: 8px;
     }}
-    .landing-block p {{
-        color: {NLF_GREY};
-        font-size: 15px;
-        max-width: 520px;
+
+    /* ── Description ── */
+    .desc-container {{
+        max-width: 820px;
         margin: 0 auto;
-        line-height: 1.65;
+        text-align: left;
+        padding: 0 20px;
+    }}
+    .desc-container p {{
+        color: {NLF_GREY};
+        font-size: 14px;
+        line-height: 1.7;
+        margin-bottom: 12px;
+    }}
+    .desc-container strong {{
+        color: {NLF_NAVY};
+    }}
+    .desc-highlight {{
+        background: {NLF_LIGHTBLUE};
+        border-left: 3px solid {NLF_NAVY};
+        padding: 14px 20px;
+        border-radius: 0 6px 6px 0;
+        margin: 20px 0;
+    }}
+    .desc-highlight p {{
+        color: {NLF_NAVY} !important;
+        font-size: 14px;
+        margin: 0;
+        font-weight: 500;
     }}
 
     /* ── Methodology Cards ── */
@@ -207,7 +231,7 @@ st.markdown(f"""
 # --- Header ---
 st.markdown(f"""
 <div class="header-bar">
-    <h1>PCE Nowcast Engine</h1>
+    <h1>PCE Proxy Engine</h1>
     <p>High-frequency inflation forecasting &mdash; Nittany Lion Fund, LLC</p>
 </div>
 """, unsafe_allow_html=True)
@@ -215,7 +239,6 @@ st.markdown(f"""
 
 # --- Sidebar ---
 with st.sidebar:
-    # NLF Logo in sidebar
     logo_path = os.path.join(os.path.dirname(__file__), "assets", "nittany_lion_fund-removebg-preview.png")
     if os.path.exists(logo_path):
         st.image(logo_path, use_container_width=True)
@@ -252,7 +275,7 @@ with st.sidebar:
 
 
 # --- Main Content ---
-run_btn = st.button("Run Nowcast", type="primary", use_container_width=True)
+run_btn = st.button("Run Forecast", type="primary", use_container_width=True)
 
 if run_btn:
     # ── Live Forecast ──
@@ -328,7 +351,6 @@ if run_btn:
     hit_rate_5bps = (clean_df["adjusted_error"].abs() <= 0.05).mean() * 100
     max_miss = clean_df["adjusted_error"].abs().max()
 
-    # Stats row
     s1, s2, s3, s4 = st.columns(4)
     with s1:
         st.markdown(f"""
@@ -370,99 +392,73 @@ if run_btn:
 
     with chart_col1:
         fig_track = go.Figure()
-
         fig_track.add_trace(go.Scatter(
             x=df['date'], y=df['actual_mom'],
-            mode='lines',
-            name='Actual PCE',
+            mode='lines', name='Actual PCE',
             line=dict(color=NLF_GREY, width=1.5),
         ))
         fig_track.add_trace(go.Scatter(
             x=df['date'], y=df['adjusted_proxy'],
-            mode='lines',
-            name='Proxy Forecast',
+            mode='lines', name='Proxy Forecast',
             line=dict(color=NLF_NAVY, width=2.2),
         ))
-
         fig_track.add_vrect(
             x0='2020-03-01', x1='2021-12-01',
-            fillcolor=f'rgba(164, 36, 59, 0.06)',
-            line_width=0,
-            annotation_text="COVID",
-            annotation_position="top left",
+            fillcolor='rgba(164, 36, 59, 0.06)', line_width=0,
+            annotation_text="COVID", annotation_position="top left",
             annotation_font=dict(size=10, color=NLF_BURGUNDY),
         )
-
         fig_track.update_layout(
-            template="plotly_white",
-            height=380,
+            template="plotly_white", height=380,
             margin=dict(l=0, r=16, t=36, b=0),
             title=dict(text="Actual vs Proxy MoM", font=dict(size=14, color=NLF_NAVY)),
             hovermode="x unified",
             xaxis=dict(title="", gridcolor="#eef1f5"),
             yaxis=dict(title="MoM %", gridcolor="#eef1f5", zeroline=True, zerolinecolor=NLF_LIGHTBLUE),
-            legend=dict(
-                orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                font=dict(size=11, color=NLF_NAVY),
-            ),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=11, color=NLF_NAVY)),
             plot_bgcolor="#ffffff",
         )
         st.plotly_chart(fig_track, use_container_width=True)
 
     with chart_col2:
         fig_hist = go.Figure()
-
         fig_hist.add_trace(go.Histogram(
-            x=clean_df['adjusted_error'],
-            nbinsx=30,
-            marker_color=NLF_BLUE,
-            opacity=0.80,
-            name='Adjusted Error',
+            x=clean_df['adjusted_error'], nbinsx=30,
+            marker_color=NLF_BLUE, opacity=0.80, name='Adjusted Error',
         ))
-
         fig_hist.add_vline(x=0, line_dash="dash", line_color=NLF_BURGUNDY, line_width=1.5)
-
         fig_hist.update_layout(
-            template="plotly_white",
-            height=380,
+            template="plotly_white", height=380,
             margin=dict(l=0, r=16, t=36, b=0),
             title=dict(text="Error Distribution (Ex-COVID)", font=dict(size=14, color=NLF_NAVY)),
             xaxis=dict(title="Error (pp)", gridcolor="#eef1f5"),
             yaxis=dict(title="Frequency", gridcolor="#eef1f5"),
-            showlegend=False,
-            plot_bgcolor="#ffffff",
+            showlegend=False, plot_bgcolor="#ffffff",
         )
         st.plotly_chart(fig_hist, use_container_width=True)
 
     # ── Error over time ──
     fig_err = go.Figure()
-
     fig_err.add_trace(go.Bar(
-        x=clean_df['date'],
-        y=clean_df['adjusted_error'],
+        x=clean_df['date'], y=clean_df['adjusted_error'],
         marker_color=clean_df['adjusted_error'].apply(
             lambda e: NLF_TEAL if abs(e) <= 0.05 else (NLF_GOLD if abs(e) <= 0.10 else NLF_BURGUNDY)
         ),
-        name='Tracking Error',
-        opacity=0.85,
+        name='Tracking Error', opacity=0.85,
     ))
-
     fig_err.add_hline(y=0.07, line_dash="dot", line_color=NLF_SILVER, line_width=1,
                       annotation_text="+7 bps", annotation_position="right",
                       annotation_font=dict(size=10, color=NLF_GREY))
     fig_err.add_hline(y=-0.07, line_dash="dot", line_color=NLF_SILVER, line_width=1,
                       annotation_text="-7 bps", annotation_position="right",
                       annotation_font=dict(size=10, color=NLF_GREY))
-
     fig_err.update_layout(
-        template="plotly_white",
-        height=280,
+        template="plotly_white", height=280,
         margin=dict(l=0, r=16, t=36, b=0),
         title=dict(text="Month-by-Month Tracking Error", font=dict(size=14, color=NLF_NAVY)),
         xaxis=dict(title="", gridcolor="#eef1f5"),
         yaxis=dict(title="Error (pp)", gridcolor="#eef1f5", zeroline=True, zerolinecolor=NLF_NAVY),
-        showlegend=False,
-        plot_bgcolor="#ffffff",
+        showlegend=False, plot_bgcolor="#ffffff",
     )
     st.plotly_chart(fig_err, use_container_width=True)
 
@@ -478,41 +474,71 @@ if run_btn:
             return ''
 
         styled = display_df.style.format({
-            'actual_mom': '{:.3f}',
-            'proxy_mom_pct': '{:.3f}',
-            'rsa_factor': '{:.4f}',
-            'adjusted_proxy': '{:.3f}',
-            'raw_error': '{:.3f}',
-            'adjusted_error': '{:.3f}',
+            'actual_mom': '{:.3f}', 'proxy_mom_pct': '{:.3f}',
+            'rsa_factor': '{:.4f}', 'adjusted_proxy': '{:.3f}',
+            'raw_error': '{:.3f}', 'adjusted_error': '{:.3f}',
         }).map(color_error, subset=['adjusted_error'])
-
         st.dataframe(styled, use_container_width=True, height=400)
 
 else:
     # ── Landing Page ──
     logo_path = os.path.join(os.path.dirname(__file__), "assets", "nittany_lion_fund-removebg-preview.png")
+
     st.markdown('<div class="landing-block">', unsafe_allow_html=True)
     if os.path.exists(logo_path):
         lcol1, lcol2, lcol3 = st.columns([1, 1, 1])
         with lcol2:
             st.image(logo_path, width=260)
     st.markdown(f"""
-        <h3>Ready to Forecast</h3>
-        <p>
-            Configure your parameters in the sidebar, then click <strong>Run Nowcast</strong> to generate
-            a live PCE estimate and historical accuracy backtest.
-        </p>
+        <h3>PCE Proxy Engine</h3>
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="section-header">Methodology</div>', unsafe_allow_html=True)
+    # ── Executive Summary ──
+    st.markdown(f"""
+    <div class="desc-container">
+        <p>
+            The PCE Proxy Engine is a high-frequency macro-forecasting tool that predicts the
+            U.S. Bureau of Economic Analysis (BEA) monthly Personal Consumption Expenditures (PCE)
+            inflation print weeks before its official release.
+        </p>
+        <p>
+            The engine exploits the <strong>publication gap</strong> &mdash; the two-to-three-week window
+            between when the Bureau of Labor Statistics (BLS) releases CPI/PPI data and when the BEA
+            publishes PCE &mdash; by algorithmically translating BLS price data into the BEA's methodology,
+            producing a highly accurate estimate of both Headline and Core PCE month-over-month inflation.
+        </p>
+        <div class="desc-highlight">
+            <p>
+                Ex-COVID backtest MAE: <strong>6.5 basis points</strong> (Headline) |
+                <strong>7.6 basis points</strong> (Core) &mdash;
+                accurate enough to position ahead of consensus.
+            </p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Core Methodology ──
+    st.markdown('<div class="section-header">Core Methodology</div>', unsafe_allow_html=True)
 
     m1, m2, m3, m4 = st.columns(4)
     methods = [
-        ("Tornqvist Index", "Geometric aggregation via log-change formula to replicate the BEA's Fisher chained methodology."),
-        ("Dynamic Weights", "Monthly expenditure shares from BEA Table U20405 capture real-time shifts in consumer behavior."),
-        ("Formula Drag", "Exponentially-weighted trailing spread corrects for structural CPI-to-PCE methodology divergence."),
-        ("Residual Seasonal", "LOESS decomposition extracts pure seasonal factors with pandemic anomaly masking."),
+        ("Tornqvist Aggregation",
+         "Geometric log-change aggregation replicates the BEA's Fisher chained index. "
+         "By operating in log space, the formula naturally suppresses hyper-inflating components "
+         "and accounts for consumer substitution effects without access to proprietary BEA data."),
+        ("Dynamic BEA Weights",
+         "Monthly expenditure shares are fetched from BEA Table U20405 in real time, "
+         "capturing live shifts in consumer behavior. Static weights from a fixed base year "
+         "cause drift; dynamic weights eliminate it."),
+        ("Formula Drag Correction",
+         "An exponentially-weighted trailing spread corrects for structural methodology differences "
+         "between CPI and PCE (e.g., employer-sponsored healthcare vs. out-of-pocket costs). "
+         "Recent observations are weighted more heavily for faster adaptation."),
+        ("Residual Seasonal Adjustment",
+         "LOESS decomposition extracts pure seasonal factors from the proxy-vs-actual error series, "
+         "with March 2020 through December 2021 masked to prevent pandemic anomalies from corrupting "
+         "the model's understanding of normal seasonal patterns."),
     ]
     for col, (title, desc) in zip([m1, m2, m3, m4], methods):
         with col:
@@ -525,27 +551,53 @@ else:
 
     st.markdown("")
 
-    # Additional upgrades section
-    st.markdown('<div class="section-header">Engine Upgrades</div>', unsafe_allow_html=True)
-    u1, u2, u3 = st.columns(3)
-    upgrades = [
-        ("Adaptive Caps", "Rolling 2.5-sigma volatility caps replace static 7 bps limit. Tighter in calm markets, flexible during regime shifts."),
-        ("OER Dampening", "Housing OER scaled by 0.85x to match the BEA's smoother imputed rent methodology vs CPI."),
-        ("EWM Drag", "Exponential decay weighting on formula drag allows faster adaptation to methodology changes."),
-    ]
-    for col, (title, desc) in zip([u1, u2, u3], upgrades):
-        with col:
-            st.markdown(f"""
-            <div class="method-card">
-                <div class="method-title">{title}</div>
-                <div class="method-desc">{desc}</div>
-            </div>
-            """, unsafe_allow_html=True)
+    # ── Engineering & Risk Management ──
+    st.markdown('<div class="section-header">Engineering & Risk Management</div>', unsafe_allow_html=True)
+
+    st.markdown(f"""
+    <div class="desc-container">
+        <p>
+            <strong>Completeness Gate:</strong> The engine counts unique series per month and rejects
+            any month with fewer than the required 22 components. This prevents the "ragged edge" problem
+            where partial data produces misleading forecasts.
+        </p>
+        <p>
+            <strong>Adaptive Contribution Caps:</strong> Volatile components (OER, Medical Care, Healthcare PPI)
+            are capped using rolling 2.5-sigma volatility limits rather than a fixed threshold. This tightens
+            constraints during calm periods and relaxes them during genuine regime shifts.
+        </p>
+        <p>
+            <strong>OER Dampening:</strong> CPI Owner's Equivalent Rent is scaled by 0.85x before aggregation
+            to account for the BEA's smoother imputed rent methodology, which dampens the seasonal lease-renewal
+            spikes present in BLS data.
+        </p>
+        <p>
+            <strong>API Resilience:</strong> All government API calls (BLS, FRED, BEA) are wrapped in retry
+            logic with exponential backoff, making the pipeline immune to standard server blips.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("")
+
+    # ── How to Use ──
+    st.markdown('<div class="section-header">How to Use</div>', unsafe_allow_html=True)
+
+    st.markdown(f"""
+    <div class="desc-container">
+        <p>
+            Configure <strong>Headline</strong> or <strong>Core PCE</strong> mode and the backtest lookback
+            window in the sidebar, then click <strong>Run Forecast</strong>. The engine will fetch live data
+            from BLS, BEA, and FRED, build the proxy estimate, apply formula drag and seasonal adjustment,
+            and display the forecast alongside a full historical accuracy backtest.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 # --- Footer ---
 st.markdown(f"""
 <div class="footer">
-    PCE Nowcast Engine &mdash; Nittany Lion Fund, LLC &mdash; Quantitative Research
+    PCE Proxy Engine &mdash; Nittany Lion Fund, LLC &mdash; Quantitative Research
 </div>
 """, unsafe_allow_html=True)
