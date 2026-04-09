@@ -94,26 +94,49 @@ def build_dynamic_weights(bea_df, crosswalk_df, is_core=False):
 
     dynamic_df = pd.DataFrame(records)
 
-    # Only use static weights for series NOT already covered by BEA dynamic weights
-    bea_covered_series = set(dynamic_df['series_id'].unique()) if not dynamic_df.empty else set()
+    # Build static weight lookup: series_id -> pce_weight
+    static_lookup = crosswalk_df.set_index('series_id')['pce_weight'].to_dict()
     all_dates = bea_df['date'].unique()
-    static_rows = crosswalk_df[
-        (crosswalk_df['series_id'].isin(STATIC_WEIGHT_SERIES)) &
-        (~crosswalk_df['series_id'].isin(bea_covered_series))
-    ]
 
-    static_records = [
-        {'date': date, 'series_id': row['series_id'], 'dynamic_weight': row['pce_weight'], 'source': 'static'}
-        for date in all_dates for _, row in static_rows.iterrows()
-    ]
+    # Aggregate duplicate (date, series_id) pairs first (e.g. WPS512101 in multiple split lines)
+    if not dynamic_df.empty:
+        dynamic_df = dynamic_df.groupby(['date', 'series_id'], as_index=False).agg({
+            'dynamic_weight': 'sum',
+            'source': 'first',
+        })
 
-    combined = pd.concat([dynamic_df, pd.DataFrame(static_records)], ignore_index=True)
+    # For every date, ensure ALL crosswalk series have a weight.
+    # Use BEA weight if available, otherwise fall back to static.
+    # Then clamp: no series can deviate more than 3x from its static weight.
+    # This prevents bad BEA line mappings from zeroing out or inflating components.
+    MAX_DRIFT = 3.0  # dynamic weight cannot exceed 3x static weight
+    final_records = []
 
-    # Aggregate duplicate (date, series_id) pairs (e.g. WPS512101 in multiple split lines)
-    combined = combined.groupby(['date', 'series_id'], as_index=False).agg({
-        'dynamic_weight': 'sum',
-        'source': 'first',
-    })
+    for date in all_dates:
+        bea_month = dynamic_df[dynamic_df['date'] == date] if not dynamic_df.empty else pd.DataFrame()
+        bea_lookup = bea_month.set_index('series_id')['dynamic_weight'].to_dict() if not bea_month.empty else {}
+
+        for _, row in crosswalk_df.iterrows():
+            sid = row['series_id']
+            static_w = static_lookup.get(sid, 0.0)
+
+            if sid in bea_lookup and bea_lookup[sid] > 0:
+                dyn_w = bea_lookup[sid]
+                # Clamp: don't let any component drift too far from its static weight
+                if static_w > 0:
+                    dyn_w = max(dyn_w, static_w / MAX_DRIFT)
+                    dyn_w = min(dyn_w, static_w * MAX_DRIFT)
+                source = 'BEA'
+            else:
+                dyn_w = static_w
+                source = 'static'
+
+            final_records.append({
+                'date': date, 'series_id': sid,
+                'dynamic_weight': dyn_w, 'source': source,
+            })
+
+    combined = pd.DataFrame(final_records)
 
     # Normalize per-month so weights sum to 1.0
     month_totals = combined.groupby('date')['dynamic_weight'].transform('sum')
