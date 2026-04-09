@@ -234,7 +234,10 @@ def run_live(is_core=False, verbose=False, lookback_years=3):
     print(f"      Most recent complete data: {latest['date'].strftime('%B %Y')}")
 
     print("\n[5/5] Building seasonal factors (statsmodels decomposition)...")
-    cutoff   = pd.Timestamp(f"{fetch_start_year}-01-01")
+    # Use the same RSA training window as backtest (lookback_years, not lookback_years+1)
+    # This ensures the live forecast and backtest graph show identical numbers
+    rsa_start_year = cy - lookback_years
+    cutoff   = pd.Timestamp(f"{rsa_start_year}-01-01")
     hist     = proxy_df[
         (proxy_df['date'] >= cutoff) &
         ~((proxy_df['date'].dt.year == tgt_year) &
@@ -335,13 +338,20 @@ def run_backtest(years=3, is_core=False, verbose=False):
     
     #Return data for Streamlit frontend
     
-    # Calculate MAE metrics
-    clean_df = results[~((results["date"] >= '2020-03-01') & (results["date"] <= '2021-12-01'))]
-    ex_covid_mae = clean_df["adjusted_error"].abs().mean()
-    
+    # Calculate MAE metrics — only exclude COVID if it falls within the window
+    includes_covid = (
+        (results['date'].min() <= pd.Timestamp('2021-12-01')) and
+        (results['date'].max() >= pd.Timestamp('2020-03-01'))
+    )
+    if includes_covid:
+        clean_df = results[~((results["date"] >= '2020-03-01') & (results["date"] <= '2021-12-01'))]
+    else:
+        clean_df = results
+    mae = clean_df["adjusted_error"].abs().mean()
+
     return {
         "dataframe": results,
-        "mae": ex_covid_mae
+        "mae": mae
     }
 
 
