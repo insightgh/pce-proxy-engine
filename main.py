@@ -310,7 +310,12 @@ def run_backtest(years=3, is_core=False, verbose=False):
     proxy_df = proxy_df[proxy_df['date'] >= cutoff].reset_index(drop=True)
     actual_pce = actual_pce[actual_pce['date'] >= cutoff].reset_index(drop=True)
     
-    rsa         = build_seasonal_factors(actual_pce, proxy_df)
+    # Build RSA factors excluding the most recent month (same as run_live)
+    # so that backtest and live forecast produce consistent numbers
+    latest_date = proxy_df['date'].max()
+    rsa_proxy = proxy_df[proxy_df['date'] < latest_date]
+    rsa_actual = actual_pce[actual_pce['date'] < latest_date]
+    rsa         = build_seasonal_factors(rsa_actual, rsa_proxy)
     results     = backtest_accuracy(actual_pce, proxy_df, rsa)
 
     print_accuracy_summary(results)
