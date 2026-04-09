@@ -5,25 +5,26 @@ Handles static and dynamic weight fetching and processing for the PCE Proxy.
 
 import pandas as pd
 
-# 1-to-1 Mapping: BEA Line Number -> BLS/PPI Series ID
+# 1-to-1 Mapping: BEA Table U20405 (NIUnderlyingDetail) Line Number -> BLS/PPI Series ID
+# Verified against actual BEA API responses — April 2026
 BEA_CONCORDANCE = {
-    53:  "CUSR0000SETC",   # Motor vehicle parts
-    68:  "CUSR0000SAH3",   # Furnishings
-    73:  "CUSR0000SAR",    # Recreation (FIXED ID)
-    74:  "CUSR0000SAG1",   # Other durable goods
-    76:  "CUSR0000SAF11",  # Food and beverages
-    108: "CUSR0000SAA",    # Clothing and footwear
-    115: "CUSR0000SETB",   # Gasoline and other energy
-    130: "CUSR0000SAN",    # Other nondurable goods
-    148: "CUSR0000SEHA",   # Rent
-    149: "CUSR0000SEHC",   # Owners equivalent rent
+    20:  "CUSR0000SETC",   # Motor vehicle parts and accessories
+    23:  "CUSR0000SAH3",   # Furnishings and durable household equipment
+    38:  "CUSR0000SAR",    # Recreational goods and vehicles
+    62:  "CUSR0000SAG1",   # Other durable goods
+    73:  "CUSR0000SAF11",  # Food and beverages purchased for off-premises consumption
+    104: "CUSR0000SAA",    # Clothing and footwear
+    113: "CUSR0000SETB",   # Gasoline and other energy goods
+    120: "CUSR0000SAN",    # Other nondurable goods
+    154: "CUSR0000SEHA",   # Rental of tenant-occupied nonfarm housing
+    160: "CUSR0000SEHC",   # Imputed rental of owner-occupied nonfarm housing (OER)
     169: "CUSR0000SAH21",  # Electricity and gas
-    170: "CUSR0000SEHG",   # Water and sanitation
-    199: "CUSR0000SAS4",   # Transportation services
-    204: "CUSR0000SARS",   # Recreation services (FIXED ID)
-    228: "CUSR0000SEFV",   # Food services and accommodations
-    232: "CUSR0000SAE2",   # Communication
-    233: "CUSR0000SETG01", # Airline Fares (FIXED ID)
+    166: "CUSR0000SEHG",   # Water supply and sanitation
+    190: "CUSR0000SAS4",   # Transportation services
+    209: "CUSR0000SARS",   # Recreation services
+    234: "CUSR0000SEFV",   # Food services and accommodations
+    281: "CUSR0000SAE2",   # Communication
+    207: "CUSR0000SETG01", # Air transportation
     253: "WPSFD4131",      # Financial services
 }
 
@@ -62,8 +63,8 @@ def build_dynamic_weights(bea_df, crosswalk_df, is_core=False):
 
     records = []
     
-    # 74 = Food at Home, 115 = Gasoline, 169 = Electricity/Gas
-    CORE_EXCLUSIONS = {74, 115, 169}
+    # 73 = Food & Beverages, 113 = Gasoline & Energy, 169 = Electricity/Gas
+    CORE_EXCLUSIONS = {73, 113, 169}
 
     for date, month_data in bea_df.groupby('date'):
         total_row = total[total['date'] == date]

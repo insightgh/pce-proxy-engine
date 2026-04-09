@@ -346,10 +346,21 @@ if run_btn:
     df = backtest_data['dataframe']
     mae = backtest_data['mae']
 
-    clean_df = df[~((df["date"] >= '2020-03-01') & (df["date"] <= '2021-12-01'))]
+    # Format dates as "Feb 2026" for all charts
+    df['date_label'] = df['date'].dt.strftime('%b %Y')
+
+    clean_df = df[~((df["date"] >= '2020-03-01') & (df["date"] <= '2021-12-01'))].copy()
     rmse = np.sqrt((clean_df["adjusted_error"] ** 2).mean())
     hit_rate_5bps = (clean_df["adjusted_error"].abs() <= 0.05).mean() * 100
     max_miss = clean_df["adjusted_error"].abs().max()
+
+    # Detect months where FRED actual may be stale/pending
+    # (proxy exists but actual_mom is NaN, or the most recent month may not have updated yet)
+    latest_proxy_date = df['date'].max()
+    fred_latest = df.dropna(subset=['actual_mom'])['date'].max() if not df.dropna(subset=['actual_mom']).empty else None
+    pending_months = set()
+    if fred_latest is not None and latest_proxy_date > fred_latest:
+        pending_months = set(df[df['date'] > fred_latest]['date'])
 
     s1, s2, s3, s4 = st.columns(4)
     with s1:
@@ -393,17 +404,25 @@ if run_btn:
     with chart_col1:
         fig_track = go.Figure()
         fig_track.add_trace(go.Scatter(
-            x=df['date'], y=df['actual_mom'],
+            x=df['date_label'], y=df['actual_mom'],
             mode='lines', name='Actual PCE',
             line=dict(color=NLF_GREY, width=1.5),
         ))
         fig_track.add_trace(go.Scatter(
-            x=df['date'], y=df['adjusted_proxy'],
+            x=df['date_label'], y=df['adjusted_proxy'],
             mode='lines', name='Proxy Forecast',
             line=dict(color=NLF_NAVY, width=2.2),
         ))
+        # Mark pending months where FRED hasn't updated yet
+        if pending_months:
+            pending_df = df[df['date'].isin(pending_months)]
+            fig_track.add_trace(go.Scatter(
+                x=pending_df['date_label'], y=pending_df['adjusted_proxy'],
+                mode='markers', name='FRED Pending',
+                marker=dict(color=NLF_GOLD, size=10, symbol='diamond'),
+            ))
         fig_track.add_vrect(
-            x0='2020-03-01', x1='2021-12-01',
+            x0='Mar 2020', x1='Dec 2021',
             fillcolor='rgba(164, 36, 59, 0.06)', line_width=0,
             annotation_text="COVID", annotation_position="top left",
             annotation_font=dict(size=10, color=NLF_BURGUNDY),
@@ -413,7 +432,7 @@ if run_btn:
             margin=dict(l=0, r=16, t=36, b=0),
             title=dict(text="Actual vs Proxy MoM", font=dict(size=14, color=NLF_NAVY)),
             hovermode="x unified",
-            xaxis=dict(title="", gridcolor="#eef1f5"),
+            xaxis=dict(title="", gridcolor="#eef1f5", type='category'),
             yaxis=dict(title="MoM %", gridcolor="#eef1f5", zeroline=True, zerolinecolor=NLF_LIGHTBLUE),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=11, color=NLF_NAVY)),
             plot_bgcolor="#ffffff",
@@ -440,7 +459,7 @@ if run_btn:
     # ── Error over time ──
     fig_err = go.Figure()
     fig_err.add_trace(go.Bar(
-        x=clean_df['date'], y=clean_df['adjusted_error'],
+        x=clean_df['date_label'], y=clean_df['adjusted_error'],
         marker_color=clean_df['adjusted_error'].apply(
             lambda e: NLF_TEAL if abs(e) <= 0.05 else (NLF_GOLD if abs(e) <= 0.10 else NLF_BURGUNDY)
         ),
@@ -456,7 +475,7 @@ if run_btn:
         template="plotly_white", height=280,
         margin=dict(l=0, r=16, t=36, b=0),
         title=dict(text="Month-by-Month Tracking Error", font=dict(size=14, color=NLF_NAVY)),
-        xaxis=dict(title="", gridcolor="#eef1f5"),
+        xaxis=dict(title="", gridcolor="#eef1f5", type='category'),
         yaxis=dict(title="Error (pp)", gridcolor="#eef1f5", zeroline=True, zerolinecolor=NLF_NAVY),
         showlegend=False, plot_bgcolor="#ffffff",
     )
@@ -465,7 +484,7 @@ if run_btn:
     # ── Raw Data Table ──
     with st.expander("View Raw Backtest Data"):
         display_df = df.copy()
-        display_df['date'] = display_df['date'].dt.strftime('%Y-%m')
+        display_df['date'] = display_df['date'].dt.strftime('%b %Y')
 
         def color_error(val):
             if isinstance(val, (int, float)):
