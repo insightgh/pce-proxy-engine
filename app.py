@@ -346,6 +346,22 @@ if run_btn:
     df = backtest_data['dataframe']
     mae = backtest_data['mae']
 
+    # If the live forecast month isn't in the backtest (FRED hasn't published actual yet),
+    # append it so the proxy line extends forward on the chart with actual_mom = NaN
+    live_date = pd.to_datetime(live_data['date_str'], format='%B %Y')
+    live_date = live_date.to_period('M').to_timestamp()  # normalize to 1st of month
+    if live_date not in df['date'].values:
+        live_row = pd.DataFrame([{
+            'date': live_date,
+            'actual_mom': np.nan,
+            'proxy_mom_pct': live_data['raw_proxy_mom'],
+            'rsa_factor': live_data['rsa_factor'],
+            'adjusted_proxy': live_data['adjusted_mom'],
+            'raw_error': np.nan,
+            'adjusted_error': np.nan,
+        }])
+        df = pd.concat([df, live_row], ignore_index=True).sort_values('date').reset_index(drop=True)
+
     # Format dates as "Feb 2026" for all charts
     df['date_label'] = df['date'].dt.strftime('%b %Y')
 
@@ -359,16 +375,14 @@ if run_btn:
         clean_df = df[~((df["date"] >= '2020-03-01') & (df["date"] <= '2021-12-01'))].copy()
     else:
         clean_df = df.copy()
+    # Exclude pending months (no actual) from accuracy stats
+    clean_df = clean_df.dropna(subset=['adjusted_error'])
     rmse = np.sqrt((clean_df["adjusted_error"] ** 2).mean())
     hit_rate_5bps = (clean_df["adjusted_error"].abs() <= 0.05).mean() * 100
     max_miss = clean_df["adjusted_error"].abs().max()
 
-    # Detect months where FRED actual may be stale/pending
-    latest_proxy_date = df['date'].max()
-    fred_latest = df.dropna(subset=['actual_mom'])['date'].max() if not df.dropna(subset=['actual_mom']).empty else None
-    pending_months = set()
-    if fred_latest is not None and latest_proxy_date > fred_latest:
-        pending_months = set(df[df['date'] > fred_latest]['date'])
+    # Detect months where FRED actual is not yet available
+    pending_months = set(df[df['actual_mom'].isna()]['date'])
 
     mae_label = "Ex-COVID MAE" if includes_covid else "MAE"
 
@@ -411,38 +425,60 @@ if run_btn:
     # ── Charts ──
     chart_col1, chart_col2 = st.columns([3, 2])
 
-    # Limit tracking chart to last 6 months for cleaner display
-    chart_df = df.tail(6).copy()
+    # Show full backtest data but only 6 evenly-spaced x-axis labels
+    all_labels = df['date_label'].tolist()
+    n_labels = len(all_labels)
+    if n_labels > 6:
+        step = max(1, n_labels // 6)
+        tick_labels = [all_labels[i] for i in range(0, n_labels, step)]
+        # Always include the last label
+        if all_labels[-1] not in tick_labels:
+            tick_labels.append(all_labels[-1])
+    else:
+        tick_labels = all_labels
+
+    # For actual PCE line: cut off at the last month FRED has real data
+    # Don't show actual values for months where FRED hasn't published yet
+    if pending_months:
+        actual_df = df[~df['date'].isin(pending_months)].copy()
+    else:
+        actual_df = df.copy()
 
     with chart_col1:
         fig_track = go.Figure()
         fig_track.add_trace(go.Scatter(
-            x=chart_df['date_label'], y=chart_df['actual_mom'],
-            mode='lines+markers', name='Actual PCE',
+            x=actual_df['date_label'], y=actual_df['actual_mom'],
+            mode='lines', name='Actual PCE',
             line=dict(color=NLF_GREY, width=1.5),
-            marker=dict(size=5),
         ))
         fig_track.add_trace(go.Scatter(
-            x=chart_df['date_label'], y=chart_df['adjusted_proxy'],
-            mode='lines+markers', name='Proxy Forecast',
+            x=df['date_label'], y=df['adjusted_proxy'],
+            mode='lines', name='Proxy Forecast',
             line=dict(color=NLF_NAVY, width=2.2),
-            marker=dict(size=5),
         ))
         # Mark pending months where FRED hasn't updated yet
         if pending_months:
-            pending_df = chart_df[chart_df['date'].isin(pending_months)]
+            pending_df = df[df['date'].isin(pending_months)]
             if not pending_df.empty:
                 fig_track.add_trace(go.Scatter(
                     x=pending_df['date_label'], y=pending_df['adjusted_proxy'],
-                    mode='markers', name='FRED Pending',
+                    mode='markers', name='Awaiting FRED Release',
                     marker=dict(color=NLF_GOLD, size=10, symbol='diamond'),
                 ))
+        if includes_covid:
+            fig_track.add_vrect(
+                x0='Mar 2020', x1='Dec 2021',
+                fillcolor='rgba(164, 36, 59, 0.06)', line_width=0,
+                annotation_text="COVID", annotation_position="top left",
+                annotation_font=dict(size=10, color=NLF_BURGUNDY),
+            )
         fig_track.update_layout(
             template="plotly_white", height=380,
             margin=dict(l=0, r=16, t=36, b=0),
-            title=dict(text="Actual vs Proxy MoM (Last 6 Months)", font=dict(size=14, color=NLF_NAVY)),
+            title=dict(text="Actual vs Proxy MoM", font=dict(size=14, color=NLF_NAVY)),
             hovermode="x unified",
-            xaxis=dict(title="", gridcolor="#eef1f5", type='category'),
+            xaxis=dict(title="", gridcolor="#eef1f5", type='category',
+                       tickvals=tick_labels, ticktext=tick_labels),
             yaxis=dict(title="MoM %", gridcolor="#eef1f5", zeroline=True, zerolinecolor=NLF_LIGHTBLUE),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=11, color=NLF_NAVY)),
             plot_bgcolor="#ffffff",
@@ -466,8 +502,24 @@ if run_btn:
         )
         st.plotly_chart(fig_hist, use_container_width=True)
 
-    # ── Error over time (last 6 months) ──
-    err_chart_df = clean_df.tail(6).copy()
+    # ── Error over time ──
+    # Only show error bars for months that have actual data (not pending)
+    if pending_months:
+        err_chart_df = clean_df[~clean_df['date'].isin(pending_months)].copy()
+    else:
+        err_chart_df = clean_df.copy()
+
+    # Build tick labels for error chart (6 evenly-spaced)
+    err_labels = err_chart_df['date_label'].tolist()
+    n_err = len(err_labels)
+    if n_err > 6:
+        err_step = max(1, n_err // 6)
+        err_tick_labels = [err_labels[i] for i in range(0, n_err, err_step)]
+        if err_labels[-1] not in err_tick_labels:
+            err_tick_labels.append(err_labels[-1])
+    else:
+        err_tick_labels = err_labels
+
     fig_err = go.Figure()
     fig_err.add_trace(go.Bar(
         x=err_chart_df['date_label'], y=err_chart_df['adjusted_error'],
@@ -485,8 +537,9 @@ if run_btn:
     fig_err.update_layout(
         template="plotly_white", height=280,
         margin=dict(l=0, r=16, t=36, b=0),
-        title=dict(text="Month-by-Month Tracking Error (Last 6 Months)", font=dict(size=14, color=NLF_NAVY)),
-        xaxis=dict(title="", gridcolor="#eef1f5", type='category'),
+        title=dict(text="Month-by-Month Tracking Error", font=dict(size=14, color=NLF_NAVY)),
+        xaxis=dict(title="", gridcolor="#eef1f5", type='category',
+                   tickvals=err_tick_labels, ticktext=err_tick_labels),
         yaxis=dict(title="Error (pp)", gridcolor="#eef1f5", zeroline=True, zerolinecolor=NLF_NAVY),
         showlegend=False, plot_bgcolor="#ffffff",
     )
