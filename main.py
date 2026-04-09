@@ -191,9 +191,10 @@ def apply_dynamic_formula_drag(proxy_df, actual_pce_df, span=12):
 # Mode 1: Live
 # ---------------------------------------------------------------------------
 
-def run_live(is_core=False, verbose=False):
+def run_live(is_core=False, verbose=False, lookback_years=3):
     now = datetime.now()
     cy  = now.year
+    fetch_start_year = cy - lookback_years - 1  # Match backtest's window
     label_text = "CORE PCE" if is_core else "HEADLINE PCE"
 
     print(f"\n{'='*44}\n  {label_text} Proxy Engine — Live Estimate")
@@ -208,11 +209,11 @@ def run_live(is_core=False, verbose=False):
         cw = cw[~cw['series_id'].isin(core_drops)].reset_index(drop=True)
 
     print("\n[2/5] Loading weights...")
-    dyn_w, using_dyn = load_weights(cw, cy - 6, is_core=is_core)
+    dyn_w, using_dyn = load_weights(cw, fetch_start_year, is_core=is_core)
     wlabel = "BEA dynamic" if using_dyn else "static"
 
     print(f"\n[3/5] Building raw proxy ({wlabel} weights)...")
-    proxy_df, merged_detail = build_proxy_series(cw, cy - 6, cy, dyn_w)
+    proxy_df, merged_detail = build_proxy_series(cw, fetch_start_year, cy, dyn_w)
     
     if verbose:
         print("\n  [Verbose] Component Counts per Month (Post-Gate):")
@@ -222,7 +223,7 @@ def run_live(is_core=False, verbose=False):
 
     print("\n[4/5] Fetching actual PCE from FRED to apply dynamic formula drag...")
     fred_series = "PCEPILFE" if is_core else "PCEPI"
-    actual_pce = fetch_fred_data(fred_series, observation_start=f"{cy-6}-01-01")
+    actual_pce = fetch_fred_data(fred_series, observation_start=f"{fetch_start_year}-01-01")
     
     proxy_df = apply_dynamic_formula_drag(proxy_df, actual_pce)
 
@@ -233,7 +234,7 @@ def run_live(is_core=False, verbose=False):
     print(f"      Most recent complete data: {latest['date'].strftime('%B %Y')}")
 
     print("\n[5/5] Building seasonal factors (statsmodels decomposition)...")
-    cutoff   = pd.Timestamp(f"{cy-6}-01-01")
+    cutoff   = pd.Timestamp(f"{fetch_start_year}-01-01")
     hist     = proxy_df[
         (proxy_df['date'] >= cutoff) &
         ~((proxy_df['date'].dt.year == tgt_year) &

@@ -283,7 +283,7 @@ if run_btn:
 
     with st.spinner("Fetching BLS, BEA, and FRED data..."):
         try:
-            live_data = run_live(is_core=is_core, verbose=False)
+            live_data = run_live(is_core=is_core, verbose=False, lookback_years=lookback_years)
         except Exception as e:
             st.error(f"Engine error: {e}")
             st.stop()
